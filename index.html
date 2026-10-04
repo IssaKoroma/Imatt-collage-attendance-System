@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Imatt - Lecturer Password Control</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,Arial}
+body{background:#0a0f1e;color:#fff;min-height:100vh}
+.header{background:#0f172a;border-bottom:2px solid #ff6a00;padding:14px;text-align:center;position:sticky;top:0;z-index:20}
+.container{max-width:500px;margin:0 auto;padding:12px;padding-bottom:100px}
+.card{background:#1e293b;border-radius:18px;padding:16px;margin-bottom:14px;border:1px solid #334155}
+.btn{width:100%;padding:13px;border:none;border-radius:11px;font-weight:800;cursor:pointer;margin-top:10px;font-size:14px}
+.btn-orange{background:linear-gradient(90deg,#ff6a00,#ff8c00);color:#fff}
+.btn-dark{background:#334155;color:#fff}.btn-green{background:#10b981;color:#fff}.btn-blue{background:#3b82f6;color:#fff}.btn-red{background:#ef4444;color:#fff}
+.input,.select{width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#fff;margin-bottom:10px;font-size:14px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.badge{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:800}
+.badge-y1{background:#3b82f6}.badge-y2{background:#10b981}.badge-y3{background:#f59e0b}.badge-y4{background:#ef4444}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.role{padding:20px 10px;background:#0f172a;border:2px solid #334155;border-radius:14px;text-align:center;cursor:pointer}
+.role.active{border-color:#ff6a00;background:#ff6a0018}
+.qr-box{background:#fff;padding:14px;border-radius:14px;display:flex;justify-content:center;margin:12px 0;min-height:230px;align-items:center;flex-direction:column}
+.lock-box{background:linear-gradient(135deg,#0f172a,#1e293b);border:2px solid #ff6a00;border-radius:14px;padding:16px;text-align:center;margin:12px 0}
+.notif{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-120px);background:#10b981;color:#fff;padding:14px 20px;border-radius:14px;font-size:13px;transition:0.5s;z-index:99;width:92%;max-width:440px;text-align:center;font-weight:800}
+.notif.show{transform:translateX(-50%) translateY(0)}
+.hidden{display:none} #reader{width:100%;border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:12px} th{background:#0f172a;padding:10px;text-align:left;color:#ff9a00} td{padding:9px;border-bottom:1px solid #334155}
+.settings-box{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="header"><h1>🏫 IMATT ATTENDANCE</h1><small style="color:#ff9a00">LECTURER CAN CHANGE PASSWORD</small></div>
+<div id="notif" class="notif"></div>
+<div class="container">
+
+<div class="card">
+<h3>Select Access</h3>
+<div class="role-grid">
+<div class="role active" onclick="setRole('lecturer')" id="rLect">👨‍🏫<br><b>LECTURER</b></div>
+<div class="role" onclick="setRole('student')" id="rStud">📱<br><b>STUDENT</b></div>
+</div>
+<input class="input" id="userName" placeholder="Full Name">
+<input class="input" id="userId" placeholder="ID Number">
+<div id="passBox">
+<div class="lock-box">
+<div style="font-size:20px">🔒 Lecturer Login</div>
+<input class="input" id="passInput" type="password" placeholder="Enter Password" style="margin-top:12px">
+<button class="btn btn-orange" onclick="verifyPass()">Login & Unlock 🔓</button>
+<div style="font-size:10px;color:#64748b;margin-top:8px">Default: IMATT2026</div>
+</div>
+</div>
+</div>
+
+<div class="card hidden" id="lectPanel">
+<h3>👨‍🏫 Generate QR <span class="badge" style="background:#10b981">✓ Lecturer</span> <span style="float:right;font-size:10px;color:#94a3b8" onclick="toggleSettings()" id="setBtn">⚙️ Settings</span></h3>
+<div id="settingsPanel" class="settings-box hidden">
+<h4 style="font-size:13px;color:#ff9a00;margin-bottom:8px">⚙️ Change Password</h4>
+<input class="input" id="oldPass" type="password" placeholder="Current Password">
+<input class="input" id="newPass" type="password" placeholder="New Password (min 6 chars)">
+<input class="input" id="confirmPass" type="password" placeholder="Confirm New Password">
+<div class="row">
+<button class="btn btn-green" style="margin:0" onclick="changePassword()">💾 Save New Password</button>
+<button class="btn btn-dark" style="margin:0" onclick="toggleSettings()">Cancel</button>
+</div>
+<div style="margin-top:10px;font-size:11px;background:#1e293b;padding:8px;border-radius:8px">
+<b>Registered Lecturers:</b><div id="lectList" style="margin-top:6px;color:#94a3b8"></div>
+</div>
+<button class="btn btn-red" style="font-size:11px" onclick="resetAllPasswords()">🔄 Reset to Default (IMATT2026)</button>
+</div>
+<div class="row">
+<select class="select" id="yearSel" onchange="updateYearLabel()"><option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option></select>
+<select class="select" id="moduleSel"><option>Computer Science</option><option>Software Eng.</option><option>Database</option><option>Networking</option><option>Web Dev</option><option>Java</option><option>Python</option><option>Maths</option></select>
+</div>
+<div class="row"><input class="input" type="date" id="dateSel"><input class="input" type="time" id="timeSel"></div>
+<button class="btn btn-orange" onclick="generateQR()">🔳 GENERATE QR FOR <span id="yearLabel">YEAR 1</span></button>
+<div class="qr-box" id="qrBox"><div style="text-align:center;color:#666"><div style="font-size:40px">📷</div><small>QR appears here</small></div></div>
+</div>
+
+<div class="card" id="listPanel">
+<h3>📋 Live Attendance <span id="sessionInfo">No Session</span> <span id="countBadge" class="badge badge-y1">0</span></h3>
+<div class="row no-print" style="margin-bottom:10px">
+<button class="btn btn-blue" style="margin:0;font-size:12px" onclick="exportCSV()">⬇️ CSV</button>
+<button class="btn btn-green" style="margin:0;font-size:12px" onclick="window.print()">🖨️ Print</button>
+<button class="btn btn-red" style="margin:0;font-size:12px" onclick="clearSession()">🗑️ Clear</button>
+</div>
+<div style="overflow:auto;max-height:500px">
+<table><thead><tr><th>#</th><th>Name</th><th>ID</th><th>Year/Module</th><th>Time</th></tr></thead><tbody id="attBody"><tr><td colspan="5" style="text-align:center;padding:28px;color:#64748b">No attendance yet</td></tr></tbody></table>
+</div>
+</div>
+
+<div class="card hidden" id="studentPanel">
+<h3>📱 Student - Scan QR</h3>
+<button class="btn btn-blue" onclick="startScan()" id="scanBtn">📷 SCAN LECTURER QR</button>
+<div id="reader" class="hidden"></div>
+<div id="scanStatus" style="margin:12px 0;font-size:12px;font-weight:700"></div>
+<input class="input" id="sName" placeholder="Full Name">
+<input class="input" id="sId" placeholder="Student ID">
+<input class="input" id="sModule" readonly placeholder="Module (from QR)">
+<input class="input" id="sYear" readonly placeholder="Year (from QR)">
+<input class="input" id="sDate" type="date" readonly>
+<button class="btn btn-green" onclick="markPresent()">✅ MARK PRESENT</button>
+</div>
+</div>
+
+<script>
+let role='lecturer', authed=false, currentSession=null;
+let sessions=JSON.parse(localStorage.getItem('imatt_lect_v4')||'{}');
+let attendance=JSON.parse(localStorage.getItem('imatt_att_v4')||'[]');
+let lecturers=JSON.parse(localStorage.getItem('imatt_lecturers')||'{"default":"IMATT2026"}');
+let html5Qr=null;
+if(!localStorage.getItem('imatt_current_pass')) localStorage.setItem('imatt_current_pass','IMATT2026');
+document.getElementById('dateSel').valueAsDate=new Date();
+document.getElementById('timeSel').value=new Date().toTimeString().slice(0,5);
+document.getElementById('sDate').valueAsDate=new Date();
+function updateYearLabel(){ document.getElementById('yearLabel').textContent=document.getElementById('yearSel').value.toUpperCase(); }
+function setRole(r){ role=r; document.querySelectorAll('.role').forEach(x=>x.classList.remove('active')); document.getElementById(r==='lecturer'?'rLect':'rStud').classList.add('active'); document.getElementById('passBox').classList.toggle('hidden', r==='student'); document.getElementById('lectPanel').classList.toggle('hidden',!(authed && r==='lecturer')); document.getElementById('listPanel').classList.toggle('hidden', r==='student'); document.getElementById('studentPanel').classList.toggle('hidden', r!=='student'); if(r==='student'){ document.getElementById('sName').value=document.getElementById('userName').value; document.getElementById('sId').value=document.getElementById('userId').value; } }
+function verifyPass(){ const p=document.getElementById('passInput').value.trim(); const currentPass=localStorage.getItem('imatt_current_pass')||'IMATT2026'; const name=document.getElementById('userName').value.trim()||'default'; if(p===currentPass || lecturers[name]===p || lecturers['default']===p){ authed=true; document.getElementById('lectPanel').classList.remove('hidden'); showNotif('✅ Lecturer Verified!'); refreshLectList(); } else { showNotif('❌ Wrong password! Try IMATT2026'); } }
+function toggleSettings(){ document.getElementById('settingsPanel').classList.toggle('hidden'); refreshLectList(); }
+function refreshLectList(){ const list=Object.keys(lecturers).map(k=>`• ${k}: ${'*'.repeat(lecturers[k].length)} (${lecturers[k].length} chars)`).join('<br>'); document.getElementById('lectList').innerHTML=list||'No lecturers saved'; }
+function changePassword(){ const oldP=document.getElementById('oldPass').value.trim(); const newP=document.getElementById('newPass').value.trim(); const conf=document.getElementById('confirmPass').value.trim(); const currentPass=localStorage.getItem('imatt_current_pass')||'IMATT2026'; const name=document.getElementById('userName').value.trim()||'default'; if(oldP!==currentPass && lecturers[name]!==oldP && oldP!=='IMATT2026'){ showNotif('❌ Current password wrong!'); return; } if(newP.length<6){ showNotif('❌ New password too short! Min 6 chars'); return; } if(newP!==conf){ showNotif('❌ New passwords not match!'); return; } localStorage.setItem('imatt_current_pass',newP); lecturers[name]=newP; lecturers['default']=newP; localStorage.setItem('imatt_lecturers',JSON.stringify(lecturers)); showNotif(`✅ Password changed! New password: ${newP} for ${name}`); document.getElementById('oldPass').value=''; document.getElementById('newPass').value=''; document.getElementById('confirmPass').value=''; document.getElementById('passInput').value=newP; toggleSettings(); }
+function resetAllPasswords(){ if(confirm('Reset all lecturer passwords to IMATT2026?')){ localStorage.setItem('imatt_current_pass','IMATT2026'); lecturers={'default':'IMATT2026'}; localStorage.setItem('imatt_lecturers',JSON.stringify(lecturers)); showNotif('✅ Reset to IMATT2026'); refreshLectList(); } }
+function generateQR(){ if(!authed){ alert('Login first'); return; } const year=document.getElementById('yearSel').value, mod=document.getElementById('moduleSel').value; const date=document.getElementById('dateSel').value, time=document.getElementById('timeSel').value; const lect=document.getElementById('userName').value||'Lecturer'; const sid=Date.now().toString(36)+Math.random().toString(36).slice(2,7); currentSession={id:sid,year,module:mod,date,time,lecturer:lect,expires:Date.now()+7200000}; sessions[sid]=currentSession; localStorage.setItem('imatt_lect_v4',JSON.stringify(sessions)); const qrData=JSON.stringify({t:'IMATT_LECT_ONLY',sid,year,module:mod,date,time,lect}); const box=document.getElementById('qrBox'); box.innerHTML='<div id="qrcode"></div><div style="margin-top:10px;font-size:11px;color:#333;text-align:center"><b>'+year+' - '+mod+'</b><br>'+date+' '+time+'<br>Lect: '+lect+'</div>'; new QRCode(document.getElementById('qrcode'),{text:qrData,width:200,height:200,correctLevel:QRCode.CorrectLevel.H}); document.getElementById('sessionInfo').textContent=`${year} - ${mod}`; showNotif(`QR for ${year} generated`); refreshList(); }
+function startScan(){ const el=document.getElementById('reader'); el.classList.remove('hidden'); document.getElementById('scanBtn').textContent='Opening camera...'; html5Qr=new Html5Qrcode("reader"); html5Qr.start({facingMode:"environment"},{fps:10,qrbox:250}, (decoded)=>{ try{ const d=JSON.parse(decoded); if(d.t==='IMATT_LECT_ONLY' && d.sid){ const sess=sessions[d.sid]; if(!sess || Date.now()>sess.expires){ document.getElementById('scanStatus').textContent='❌ QR expired'; return; } currentSession=sess; document.getElementById('sModule').value=d.module; document.getElementById('sYear').value=d.year; document.getElementById('sDate').value=d.date; document.getElementById('scanStatus').innerHTML=`✅ Valid QR: ${d.module} - ${d.year}`; html5Qr.stop(); el.classList.add('hidden'); document.getElementById('scanBtn').textContent='✅ Scanned'; } }catch(e){ document.getElementById('scanStatus').textContent='❌ Invalid QR'; } },()=>{} ).catch(err=>{ alert('Allow camera'); }); }
+function markPresent(){ const name=document.getElementById('sName').value.trim()||document.getElementById('userName').value.trim(); const id=document.getElementById('sId').value.trim()||document.getElementById('userId').value.trim(); const mod=document.getElementById('sModule').value, year=document.getElementById('sYear').value, date=document.getElementById('sDate').value; if(!name||!id||!mod){ alert('Scan QR first'); return; } if(attendance.find(a=>a.sid===currentSession?.id && a.id===id)){ alert('Already marked!'); return; } const rec={name,id,module:mod,year,date,time:new Date().toLocaleTimeString(),sid:currentSession.id,lecturer:currentSession.lecturer,ts:Date.now()}; attendance.push(rec); localStorage.setItem('imatt_att_v4',JSON.stringify(attendance)); localStorage.setItem('imatt_last_notif',JSON.stringify(rec)); showNotif(`✅ ${name} marked present!`); }
+function refreshList(){ const list=currentSession?attendance.filter(a=>a.sid===currentSession.id):attendance; document.getElementById('countBadge').textContent=list.length+' Present'; const tb=document.getElementById('attBody'); if(list.length===0){ tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:#64748b">No students</td></tr>'; return; } tb.innerHTML=list.map((a,i)=>`<tr><td>${i+1}</td><td><b>${a.name}</b></td><td>${a.id}</td><td><span class="badge ${a.year==='Year 1'?'badge-y1':a.year==='Year 2'?'badge-y2':a.year==='Year 3'?'badge-y3':'badge-y4'}">${a.year}</span> ${a.module}</td><td>${a.date}<br><small>${a.time}</small></td></tr>`).join(''); const last=JSON.parse(localStorage.getItem('imatt_last_notif')||'null'); if(last && role==='lecturer' && Date.now()-last.ts<8000){ showNotif(`🔔 ${last.name} marked present!`); } }
+function showNotif(m){ const n=document.getElementById('notif'); n.textContent=m; n.classList.add('show'); setTimeout(()=>n.classList.remove('show'),5000); }
+function exportCSV(){ const rows=attendance.map(a=>`"${a.date}","${a.year}","${a.module}","${a.name}","${a.id}","${a.time}","${a.lecturer}"`); const csv='Date,Year,Module,Name,ID,Time,Lecturer\n'+rows.join('\n'); const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`Attendance_${new Date().toISOString().slice(0,10)}.csv`; a.click(); }
+function clearSession(){ if(!currentSession){ attendance=[]; } else if(confirm('Clear?')){ attendance=attendance.filter(a=>a.sid!==currentSession.id); } localStorage.setItem('imatt_att_v4',JSON.stringify(attendance)); refreshList(); }
+setInterval(()=>{ if(role==='lecturer') refreshList(); },2500);
+refreshList(); updateYearLabel();
+</script>
+</body>
+</html>
