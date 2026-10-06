@@ -1,0 +1,81 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IMATT Lecturer</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>body{font-family:Arial;background:#f5f7fb;padding:15px}.card{background:#fff;padding:20px;border-radius:15px;max-width:500px;margin:auto;box-shadow:0 4px 15px rgba(0,0,0,.1)}input,select,button{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #ddd;box-sizing:border-box}button{background:#1a73e8;color:#fff;font-weight:bold;border:none;cursor:pointer}.hidden{display:none}#qrcode{display:flex;justify-content:center;margin:15px 0}.attendee{padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;font-size:14px}.linkBtn{background:#0e9f6e;margin-top:10px}</style>
+</head><body>
+<div class="card" id="loginCard">
+<h2>IMATT Lecturer Login</h2>
+<input type="email" id="email" placeholder="Lecturer Email">
+<input type="password" id="password" placeholder="Password (min 6)">
+<button onclick="login()">Login</button>
+<button class="linkBtn" onclick="signup()">Create Account</button>
+<p id="loginMsg" style="color:red;font-size:14px"></p>
+</div>
+
+<div class="card hidden" id="mainCard">
+<h3>Welcome <span id="userEmail"></span> <button onclick="logout()" style="width:auto;background:#e53935;padding:6px 12px;float:right">Logout</button></h3>
+<input id="dept" list="deptList" placeholder="Type Department e.g. Computer Science, Nursing">
+<datalist id="deptList"><option value="Computer Science"><option value="Business Admin"><option value="Engineering"><option value="Nursing"><option value="Public Health"><option value="Accounting"></datalist>
+<input id="module" placeholder="Module e.g. Operating System">
+<select id="year"><option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option></select>
+<input id="group" placeholder="Group e.g. Group A">
+<button onclick="generateQR()">GENERATE QR CODE</button>
+<div id="qrSection" class="hidden"><div id="qrcode"></div><p id="qrLink" style="word-break:break-all;font-size:12px;background:#f1f3f4;padding:8px;border-radius:5px"></p><button onclick="copyLink()" style="background:#34a853">Copy Link</button></div>
+<hr><h3>Attendance - <span id="count">0</span></h3><div id="list"></div>
+<button onclick="exportCSV()" style="background:#444">📊 Export CSV (Excel)</button>
+<button onclick="exportPhoneFile()" style="background:#0b57d0">📱 Export Phone File (TXT for WhatsApp)</button>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyBbfZkPmrPyEAkpaaAG5DPb4tk7k30ILPU",authDomain:"imatt---attendance.firebaseapp.com",databaseURL:"https://imatt---attendance-default-rtdb.firebaseio.com",projectId:"imatt---attendance",storageBucket:"imatt---attendance.firebasestorage.app",messagingSenderId:"774914670268",appId:"1:774914670268:web:c0890f062e849f883e5ab9"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();const db=firebase.database();let currentSessionId=null;
+auth.onAuthStateChanged(u=>{if(u){loginCard.classList.add('hidden');mainCard.classList.remove('hidden');userEmail.innerText=u.email}else{loginCard.classList.remove('hidden');mainCard.classList.add('hidden')}});
+function login(){const e=email.value.trim();const p=password.value;if(!e||!p){loginMsg.innerText="Enter email and password";return}loginMsg.style.color="blue";loginMsg.innerText="Logging in...";auth.signInWithEmailAndPassword(e,p).catch(err=>{loginMsg.style.color="red";loginMsg.innerText=err.message})}
+function signup(){const e=email.value.trim();const p=password.value;if(!e||!p){loginMsg.innerText="Enter email and password";return}if(p.length<6){loginMsg.innerText="Password min 6";return}loginMsg.style.color="blue";loginMsg.innerText="Creating...";auth.createUserWithEmailAndPassword(e,p).then(()=>{loginMsg.style.color="green";loginMsg.innerText="✅ Account created! Now Login."}).catch(err=>{loginMsg.style.color="red";loginMsg.innerText=err.message})}
+function logout(){auth.signOut()}
+function generateQR(){
+ if(!dept.value){alert('Enter Department');return}if(!module.value){alert('Enter Module');return}
+ currentSessionId=dept.value.substring(0,4).replace(/\s/g,'')+'-'+Date.now();
+ const base=location.href.replace('lecturer.html','').replace(/\/$/,'');const link=base+'/student.html?session='+currentSessionId;
+ db.ref('sessions/'+currentSessionId).set({lecturer:auth.currentUser.email,dept:dept.value,module:module.value,year:year.value,group:group.value,createdAt:new Date().toISOString()});
+ qrSection.classList.remove('hidden');qrLink.innerText=link;qrcode.innerHTML='';new QRCode(qrcode,{text:link,width:240,height:240});
+ db.ref('sessions/'+currentSessionId+'/attendees').on('value',snap=>{
+   const data=snap.val()||{};const arr=Object.values(data);count.innerText=arr.length;list.innerHTML='';
+   arr.sort((a,b)=>new Date(a.time)-new Date(b.time)).forEach((a,i)=>{list.innerHTML+=`<div class=attendee><span>${i+1}. ${a.name} (${a.id})</span><span>${new Date(a.time).toLocaleTimeString()}</span></div>`})
+ })
+}
+function copyLink(){navigator.clipboard.writeText(qrLink.innerText);alert('Link Copied!')}
+
+// 1. EXPORT CSV WITH DEPARTMENT, MODULE, DATE, NAME, TIME, ID
+function exportCSV(){
+ if(!currentSessionId){alert('Generate QR first');return}
+ db.ref('sessions/'+currentSessionId).once('value',snap=>{
+  const s=snap.val();if(!s){alert('No session');return}const list=Object.values(s.attendees||{});if(!list.length){alert('No attendance');return}
+  let csv='No,Department,Module,Year,Group,Date,Student Name,Student ID,Time Marked,Lecturer\n';
+  list.sort((a,b)=>new Date(a.time)-new Date(b.time)).forEach((a,i)=>{
+   const t=new Date(a.time);const d=t.toLocaleDateString();const tm=t.toLocaleTimeString();const name=`"${(a.name||'').replace(/"/g,'""')}"`;
+   csv+=`${i+1},"${s.dept}","${s.module}","${s.year}","${s.group}","${d}",${name},"${a.id}","${tm}","${s.lecturer}"\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const el=document.createElement('a');el.href=url;el.download=`${s.module}_${s.group}_${new Date().toISOString().split('T')[0]}.csv`;el.click();
+ })
+}
+
+// 2. EXPORT PHONE FILE (TXT) FOR WHATSAPP SHARING
+function exportPhoneFile(){
+ if(!currentSessionId){alert('Generate QR first');return}
+ db.ref('sessions/'+currentSessionId).once('value',snap=>{
+  const s=snap.val();if(!s){alert('No session');return}const list=Object.values(s.attendees||{});if(!list.length){alert('No attendance');return}
+  let txt=`IMATT ATTENDANCE REPORT\n======================\nDepartment: ${s.dept}\nModule: ${s.module}\nYear: ${s.year}\nGroup: ${s.group}\nDate: ${new Date(s.createdAt).toLocaleDateString()}\nLecturer: ${s.lecturer}\nTotal Present: ${list.length}\n----------------------\n\n`;
+  txt+=`No. | Student Name | ID | Time\n--------------------------------\n`;
+  list.sort((a,b)=>new Date(a.time)-new Date(b.time)).forEach((a,i)=>{
+   const t=new Date(a.time).toLocaleTimeString();txt+=`${i+1}. ${a.name} | ${a.id} | ${t}\n`;
+  });
+  txt+=`\nGenerated by IMATT Attendance System\n`;
+  const blob=new Blob([txt],{type:'text/plain'});const url=URL.createObjectURL(blob);const el=document.createElement('a');el.href=url;el.download=`ATTENDANCE_${s.module}_${s.group}.txt`;el.click();
+ })
+}
+</script></body></html>
