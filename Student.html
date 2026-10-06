@@ -1,0 +1,12 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IMATT Student</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>body{font-family:Arial;background:#e8f0fe;padding:15px}.card{background:#fff;padding:20px;border-radius:15px;max-width:450px;margin:auto;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.1)}input,button{width:100%;padding:14px;margin:8px 0;border-radius:10px;border:1px solid #ddd}button{background:#1a73e8;color:#fff;font-weight:bold}.info{background:#f1f3f4;padding:10px;border-radius:8px;text-align:left}.hidden{display:none}</style>
+</head><body>
+<div class="card" id="formCard"><h2>IMATT Attendance</h2><div id="sessionInfo" class="info">Loading...</div><input id="sName" placeholder="Full Name"><input id="sId" placeholder="Student ID"><button onclick="submitAttendance()">Submit</button><p id="msg" style="color:red"></p><p style="font-size:11px">Only lecturer can see list. No password.</p></div>
+<div class="card hidden" id="successCard"><h1>✅ Marked!</h1><p id="successMsg"></p></div>
+<script>
+const firebaseConfig={apiKey:"AIzaSyBbfZkPmrPyEAkpaaAG5DPb4tk7k30ILPU",authDomain:"imatt---attendance.firebaseapp.com",databaseURL:"https://imatt---attendance-default-rtdb.firebaseio.com",projectId:"imatt---attendance",storageBucket:"imatt---attendance.firebasestorage.app",messagingSenderId:"774914670268",appId:"1:774914670268:web:c0890f062e849f883e5ab9"};
+firebase.initializeApp(firebaseConfig);const db=firebase.database();const sessionId=new URLSearchParams(location.search).get('session');
+if(!sessionId){sessionInfo.innerHTML='<b style=color:red>Invalid QR</b>'}else{db.ref('sessions/'+sessionId).once('value').then(s=>{const v=s.val();if(!v){sessionInfo.innerHTML='<b style=color:red>Session not found</b>';return}sessionInfo.innerHTML=`<b>${v.module}</b><br>${v.dept} - ${v.year} - ${v.group}<br>${v.lecturer}<br><small>${new Date(v.createdAt).toLocaleString()}</small>`})}
+function submitAttendance(){const n=sName.value.trim(),i=sId.value.trim();if(!n||!i){msg.innerText='Enter name and ID';return}db.ref('sessions/'+sessionId+'/attendees/'+i).set({name:n,id:i,time:new Date().toISOString()}).then(()=>{formCard.classList.add('hidden');successCard.classList.remove('hidden');successMsg.innerText=`${n} (${i}) marked present`}).catch(e=>msg.innerText=e.message)}
+</script></body></html>
